@@ -73,3 +73,16 @@ scripts\build_msvc.bat
 The program does not load the complete input file into memory. It uses sequential reading and time ordered merging, making it suitable for 10GB+ receiver logs.
 
 Malformed or CRC-invalid auxiliary messages are silently ignored.
+
+## Related GNSS tools
+
+This repository is part of a set of focused public GNSS engineering tools:
+
+- [`gnss-data-simulator`](https://github.com/zengxianghang/gnss-data-simulator) — deterministic GNSS receiver-data simulation and RTKLIB-based validation.
+- [`gnss-data-parser`](https://github.com/zengxianghang/gnss-data-parser) — streaming Python/MATLAB parsing and cross-language validation for receiver logs.
+- [`FastExtractor`](https://github.com/zengxianghang/FastExtractor) — high-performance GPST-window extraction for large NovAtel/Unicore logs.
+- [`RTKLIB`](https://github.com/zengxianghang/RTKLIB) — the RTKLIB fork used by simulator integration and validation work.
+
+## License
+
+LogMerger is licensed under the [MIT License](LICENSE).
