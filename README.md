@@ -25,13 +25,19 @@ Example:
 merge_aux_into_input.exe raw.log aux.log raw_merge.log
 ```
 
-The auxiliary records are inserted before the first valid target record of the same epoch:
+The eligible target records are:
 
 - RANGE
 - BESTPOS
 - BESTVEL
 - PSRVEL
 - PSRPOS
+
+Insertion behavior differs by auxiliary record type:
+
+- `INSPVA` is epoch-matched to the first valid target within `tolerance_us`.
+- EPH/ION records are state-bearing navigation data. A CRC-valid EPH/ION record that is earlier than the next valid target is preserved and inserted before that target instead of being discarded. Records at the target epoch (or within `tolerance_us`) are also inserted before the target.
+- This rule also applies to the first target in the input file, so EPH/ION records whose header GPST is earlier than the first RANGE/other eligible target are retained.
 
 ## Supported auxiliary messages
 

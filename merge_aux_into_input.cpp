@@ -975,17 +975,28 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
         lastTargetGpst = targetTime.gpstNs;
         hasLastTargetGpst = true;
 
-        // aux.log is one chronological stream. It may contain only INSPVA,
-        // only EPH/ION, or any mixture. Matching records keep their original
-        // relative order and are consumed by the first eligible target at the
-        // epoch, preventing duplicate insertion at later target messages.
+        const std::string &insertEol =
+            inputEol.empty() ? defaultOutputEol : inputEol;
+
+        // EPH/ION records are state-bearing navigation data. If an EPH/ION
+        // header is older than the current target, keep it and emit it before
+        // this target instead of discarding it as stale. INSPVA remains an
+        // epoch-matched record, so stale INSPVA is still counted unmatched.
+        // This also preserves EPH/ION records that precede the first target in
+        // input.log, including GPSCNAVEPH before the first RANGE epoch.
         while (hasAuxLine &&
                currentAux.gpstNs < targetTime.gpstNs - toleranceNs) {
             if (currentAux.kind == AuxRecordKind::kInspva) {
                 ++stats.unmatchedInspvaBeforeTarget;
             } else {
-                ++stats.unmatchedAuxBeforeTarget;
+                if (!WriteLine(output, currentAux.text, insertEol)) {
+                    error = "failed while writing carried-forward EPH/ION line";
+                    ok = false;
+                    break;
+                }
+                ++stats.insertedAuxLines;
             }
+
             ok = ReadNextAuxRecord(auxReader, currentAux, hasAuxLine,
                                lastAuxGpst, hasLastAuxGpst, stats, error);
             if (!ok) {
@@ -996,8 +1007,9 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
             break;
         }
 
-        const std::string &insertEol =
-            inputEol.empty() ? defaultOutputEol : inputEol;
+        // Records at the target epoch (or within tolerance) keep their source
+        // order and are consumed by the first eligible target, preventing
+        // duplicate insertion at later target messages.
         while (hasAuxLine) {
             const int64_t delta = currentAux.gpstNs - targetTime.gpstNs;
             if (delta < -toleranceNs || delta > toleranceNs) {
@@ -1152,9 +1164,11 @@ void PrintUsage(const char *program) {
                  "  %s <input.log> <aux.log> <output.log> [tolerance_us]\n\n"
                  "aux.log may contain INSPVA, supported NovAtel/Unicore EPH/ION,\n"
                  "or any mixture of them. The auxiliary file is scanned once.\n"
-                 "Matching records preserve source order and are inserted before the\n"
-                 "first CRC-valid RANGE/BESTPOS/BESTVEL/PSRVEL/PSRPOS record at the\n"
-                 "same GPST. CRC-invalid/incomplete records are silently skipped.\n"
+                 "INSPVA is epoch-matched within tolerance. Earlier EPH/ION records\n"
+                 "are preserved and inserted before the next CRC-valid target;\n"
+                 "EPH/ION at the target epoch (or within tolerance) is inserted too.\n"
+                 "CRC-invalid/incomplete records are silently skipped.\n"
+                 "Targets: RANGE/BESTPOS/BESTVEL/PSRVEL/PSRPOS.\n"
                  "Default tolerance is 0 us.\n",
                  program);
 }
