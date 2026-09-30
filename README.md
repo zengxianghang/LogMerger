@@ -53,6 +53,7 @@ The auxiliary records are inserted before the first valid target record of the s
 - BDSION
 - GALION
 - GPSEPH
+- GPSCNAVEPH
 - QZSSEPH
 - BD3EPH
 - BDSEPH
