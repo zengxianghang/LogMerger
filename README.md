@@ -69,6 +69,10 @@ Windows + Visual Studio:
 scripts\build_msvc.bat
 ```
 
+The build script can be launched from a normal Command Prompt or PowerShell. It first uses `cl.exe` when it is already available; otherwise it automatically locates Visual Studio through `vswhere.exe`, initializes the x64 MSVC environment with `vcvars64.bat`, and builds `merge_aux_into_input.exe` in the repository root. If `vswhere.exe` is unavailable, the script falls back to the standard Visual Studio 2022/2019/2017 Community, Professional, Enterprise, and Build Tools installation paths.
+
+Visual Studio must include the **Desktop development with C++** workload.
+
 ## Design
 
 The program does not load the complete input file into memory. It uses sequential reading and time ordered merging, making it suitable for 10GB+ receiver logs.
