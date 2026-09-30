@@ -1,0 +1,149 @@
+name: Apply GPSCNAVEPH support patch
+
+on:
+  push:
+    branches:
+      - feat/gpscnav-eph
+    paths:
+      - .github/workflows/apply-gpscnav-eph.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/gpscnav-eph
+
+      - name: Patch source and README
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('merge_aux_into_input.cpp')
+          text = source_path.read_text(encoding='utf-8')
+
+          def replace_once(old, new):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one match, got {count}: {old!r}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              '    kUnicoreGpsEph,\n    kUnicoreQzssEph,',
+              '    kUnicoreGpsEph,\n    kUnicoreGpsCnavEph,\n    kUnicoreQzssEph,')
+
+          replace_once(
+              '    uint64_t unicoreGpsEphLines = 0;\n    uint64_t unicoreQzssEphLines = 0;',
+              '    uint64_t unicoreGpsEphLines = 0;\n    uint64_t unicoreGpsCnavEphLines = 0;\n    uint64_t unicoreQzssEphLines = 0;')
+
+          replace_once(
+              '    if (name == "GPSEPHA" || name == "GPSEPH") {\n'
+              '        return AuxLogType::kUnicoreGpsEph;\n'
+              '    }\n'
+              '    if (name == "QZSSEPHA" || name == "QZSSEPH") {',
+              '    if (name == "GPSEPHA" || name == "GPSEPH") {\n'
+              '        return AuxLogType::kUnicoreGpsEph;\n'
+              '    }\n'
+              '    if (name == "GPSCNAVEPHA" || name == "GPSCNAVEPH") {\n'
+              '        return AuxLogType::kUnicoreGpsCnavEph;\n'
+              '    }\n'
+              '    if (name == "QZSSEPHA" || name == "QZSSEPH") {')
+
+          replace_once(
+              '        case AuxLogType::kUnicoreGpsEph:\n        case AuxLogType::kUnicoreQzssEph:',
+              '        case AuxLogType::kUnicoreGpsEph:\n        case AuxLogType::kUnicoreGpsCnavEph:\n        case AuxLogType::kUnicoreQzssEph:')
+
+          replace_once(
+              '        case AuxLogType::kUnicoreGpsEph: ++stats.unicoreGpsEphLines; break;\n'
+              '        case AuxLogType::kUnicoreQzssEph: ++stats.unicoreQzssEphLines; break;',
+              '        case AuxLogType::kUnicoreGpsEph: ++stats.unicoreGpsEphLines; break;\n'
+              '        case AuxLogType::kUnicoreGpsCnavEph: ++stats.unicoreGpsCnavEphLines; break;\n'
+              '        case AuxLogType::kUnicoreQzssEph: ++stats.unicoreQzssEphLines; break;')
+
+          replace_once(
+              '    std::fprintf(stderr, "    Unicore GPSEPH            : %" PRIu64 "\\n", stats.unicoreGpsEphLines);\n'
+              '    std::fprintf(stderr, "    Unicore QZSSEPH           : %" PRIu64 "\\n", stats.unicoreQzssEphLines);',
+              '    std::fprintf(stderr, "    Unicore GPSEPH            : %" PRIu64 "\\n", stats.unicoreGpsEphLines);\n'
+              '    std::fprintf(stderr, "    Unicore GPSCNAVEPH        : %" PRIu64 "\\n", stats.unicoreGpsCnavEphLines);\n'
+              '    std::fprintf(stderr, "    Unicore QZSSEPH           : %" PRIu64 "\\n", stats.unicoreQzssEphLines);')
+
+          source_path.write_text(text, encoding='utf-8')
+
+          readme_path = Path('README.md')
+          readme = readme_path.read_text(encoding='utf-8')
+          old = '- GPSEPH\n- QZSSEPH'
+          new = '- GPSEPH\n- GPSCNAVEPH\n- QZSSEPH'
+          if readme.count(old) != 1:
+              raise SystemExit(f'expected one README insertion point, got {readme.count(old)}')
+          readme_path.write_text(readme.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Build
+        shell: bash
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -pedantic merge_aux_into_input.cpp -o merge_aux_into_input_test
+
+      - name: Integration test GPSCNAVEPH insertion
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          def crc32_value(value):
+              for _ in range(8):
+                  if value & 1:
+                      value = (value >> 1) ^ 0xEDB88320
+                  else:
+                      value >>= 1
+              return value & 0xffffffff
+
+          def crc32_long_ascii(data):
+              crc = 0
+              for b in data.encode('ascii'):
+                  temp1 = (crc >> 8) & 0x00ffffff
+                  temp2 = crc32_value((crc ^ b) & 0xff)
+                  crc = (temp1 ^ temp2) & 0xffffffff
+              return crc
+
+          def record(payload):
+              return f'#{payload}*{crc32_long_ascii(payload):08x}\r\n'
+
+          target = record('RANGEA,COM1,0,0.0,FINE,2205,118740.000,0,0,0;0')
+          cnav_a = record('GPSCNAVEPHA,97,GPS,FINE,2205,118740000,0,0,18,2;14,1')
+          cnav_base = record('GPSCNAVEPH,97,GPS,FINE,2205,118740000,0,0,18,2;15,1')
+
+          Path('input_test.log').write_bytes(target.encode('ascii'))
+          Path('aux_test.log').write_bytes((cnav_a + cnav_base).encode('ascii'))
+
+          proc = subprocess.run(
+              ['./merge_aux_into_input_test', 'input_test.log', 'aux_test.log', 'output_test.log'],
+              text=True, capture_output=True, check=False)
+          if proc.returncode != 0:
+              raise SystemExit(f'merger failed: {proc.returncode}\n{proc.stderr}')
+
+          output = Path('output_test.log').read_text(encoding='ascii')
+          lines = output.splitlines()
+          assert len(lines) == 3, lines
+          assert lines[0].startswith('#GPSCNAVEPHA,'), lines
+          assert lines[1].startswith('#GPSCNAVEPH,'), lines
+          assert lines[2].startswith('#RANGEA,'), lines
+          assert 'Unicore GPSCNAVEPH        : 2' in proc.stderr, proc.stderr
+          PY
+
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          rm -f merge_aux_into_input_test input_test.log aux_test.log output_test.log
+          rm -f .github/workflows/apply-gpscnav-eph.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add merge_aux_into_input.cpp README.md .github/workflows/apply-gpscnav-eph.yml
+          git commit -m "feat: support Unicore GPSCNAVEPH insertion"
+          git push origin HEAD:feat/gpscnav-eph
