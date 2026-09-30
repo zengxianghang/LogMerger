@@ -111,6 +111,7 @@ enum class AuxLogType {
     kUnicoreBdsIon,
     kUnicoreGalIon,
     kUnicoreGpsEph,
+    kUnicoreGpsCnavEph,
     kUnicoreQzssEph,
     kUnicoreBd3Eph,
     kUnicoreBdsEph,
@@ -157,6 +158,7 @@ struct Stats {
     uint64_t unicoreBdsIonLines = 0;
     uint64_t unicoreGalIonLines = 0;
     uint64_t unicoreGpsEphLines = 0;
+    uint64_t unicoreGpsCnavEphLines = 0;
     uint64_t unicoreQzssEphLines = 0;
     uint64_t unicoreBd3EphLines = 0;
     uint64_t unicoreBdsEphLines = 0;
@@ -350,6 +352,9 @@ AuxLogType ClassifyAuxLine(std::string_view line) {
     if (name == "GPSEPHA" || name == "GPSEPH") {
         return AuxLogType::kUnicoreGpsEph;
     }
+    if (name == "GPSCNAVEPHA" || name == "GPSCNAVEPH") {
+        return AuxLogType::kUnicoreGpsCnavEph;
+    }
     if (name == "QZSSEPHA" || name == "QZSSEPH") {
         return AuxLogType::kUnicoreQzssEph;
     }
@@ -378,6 +383,7 @@ bool IsUnicoreAuxLog(AuxLogType type) {
         case AuxLogType::kUnicoreBdsIon:
         case AuxLogType::kUnicoreGalIon:
         case AuxLogType::kUnicoreGpsEph:
+        case AuxLogType::kUnicoreGpsCnavEph:
         case AuxLogType::kUnicoreQzssEph:
         case AuxLogType::kUnicoreBd3Eph:
         case AuxLogType::kUnicoreBdsEph:
@@ -405,6 +411,7 @@ void CountAuxLine(AuxLogType type, Stats &stats) {
         case AuxLogType::kUnicoreBdsIon: ++stats.unicoreBdsIonLines; break;
         case AuxLogType::kUnicoreGalIon: ++stats.unicoreGalIonLines; break;
         case AuxLogType::kUnicoreGpsEph: ++stats.unicoreGpsEphLines; break;
+        case AuxLogType::kUnicoreGpsCnavEph: ++stats.unicoreGpsCnavEphLines; break;
         case AuxLogType::kUnicoreQzssEph: ++stats.unicoreQzssEphLines; break;
         case AuxLogType::kUnicoreBd3Eph: ++stats.unicoreBd3EphLines; break;
         case AuxLogType::kUnicoreBdsEph: ++stats.unicoreBdsEphLines; break;
@@ -1123,6 +1130,7 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
     std::fprintf(stderr, "    Unicore BDSION            : %" PRIu64 "\n", stats.unicoreBdsIonLines);
     std::fprintf(stderr, "    Unicore GALION            : %" PRIu64 "\n", stats.unicoreGalIonLines);
     std::fprintf(stderr, "    Unicore GPSEPH            : %" PRIu64 "\n", stats.unicoreGpsEphLines);
+    std::fprintf(stderr, "    Unicore GPSCNAVEPH        : %" PRIu64 "\n", stats.unicoreGpsCnavEphLines);
     std::fprintf(stderr, "    Unicore QZSSEPH           : %" PRIu64 "\n", stats.unicoreQzssEphLines);
     std::fprintf(stderr, "    Unicore BD3EPH            : %" PRIu64 "\n", stats.unicoreBd3EphLines);
     std::fprintf(stderr, "    Unicore BDSEPH            : %" PRIu64 "\n", stats.unicoreBdsEphLines);
