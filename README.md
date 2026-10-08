@@ -48,6 +48,7 @@ Insertion behavior differs by auxiliary record type:
 - QZSSEPHEMERISA
 - GALEPHEMERISA
 - GPSEPHEMA
+- GPSL1CEPHEMA
 - BD2EPHEMA
 - IONUTCA
 - BD2IONUTCA
