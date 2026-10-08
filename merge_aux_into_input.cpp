@@ -101,6 +101,7 @@ enum class AuxLogType {
     kNovatelQzssEphemeris,
     kNovatelGalEphemeris,
     kNovatelGpsEphem,
+    kNovatelGpsL1cEphem,
     kNovatelBd2Ephem,
     kNovatelIonUtc,
     kNovatelBd2IonUtc,
@@ -149,6 +150,7 @@ struct Stats {
     uint64_t novatelQzssEphemerisLines = 0;
     uint64_t novatelGalEphemerisLines = 0;
     uint64_t novatelGpsEphemLines = 0;
+    uint64_t novatelGpsL1cEphemLines = 0;
     uint64_t novatelBd2EphemLines = 0;
     uint64_t novatelIonUtcLines = 0;
     uint64_t novatelBd2IonUtcLines = 0;
@@ -324,6 +326,9 @@ AuxLogType ClassifyAuxLine(std::string_view line) {
     if (name == "GPSEPHEMA" || name == "GPSEPHEM") {
         return AuxLogType::kNovatelGpsEphem;
     }
+    if (name == "GPSL1CEPHEMA" || name == "GPSL1CEPHEM") {
+        return AuxLogType::kNovatelGpsL1cEphem;
+    }
     if (name == "BD2EPHEMA" || name == "BD2EPHEM") {
         return AuxLogType::kNovatelBd2Ephem;
     }
@@ -403,6 +408,7 @@ void CountAuxLine(AuxLogType type, Stats &stats) {
         case AuxLogType::kNovatelQzssEphemeris: ++stats.novatelQzssEphemerisLines; break;
         case AuxLogType::kNovatelGalEphemeris: ++stats.novatelGalEphemerisLines; break;
         case AuxLogType::kNovatelGpsEphem: ++stats.novatelGpsEphemLines; break;
+        case AuxLogType::kNovatelGpsL1cEphem: ++stats.novatelGpsL1cEphemLines; break;
         case AuxLogType::kNovatelBd2Ephem: ++stats.novatelBd2EphemLines; break;
         case AuxLogType::kNovatelIonUtc: ++stats.novatelIonUtcLines; break;
         case AuxLogType::kNovatelBd2IonUtc: ++stats.novatelBd2IonUtcLines; break;
@@ -1134,6 +1140,7 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
     std::fprintf(stderr, "    NovAtel QZSSEPHEMERIS     : %" PRIu64 "\n", stats.novatelQzssEphemerisLines);
     std::fprintf(stderr, "    NovAtel GALEPHEMERIS      : %" PRIu64 "\n", stats.novatelGalEphemerisLines);
     std::fprintf(stderr, "    NovAtel GPSEPHEM          : %" PRIu64 "\n", stats.novatelGpsEphemLines);
+    std::fprintf(stderr, "    NovAtel GPSL1CEPHEM       : %" PRIu64 "\n", stats.novatelGpsL1cEphemLines);
     std::fprintf(stderr, "    NovAtel BD2EPHEM          : %" PRIu64 "\n", stats.novatelBd2EphemLines);
     std::fprintf(stderr, "    NovAtel IONUTC            : %" PRIu64 "\n", stats.novatelIonUtcLines);
     std::fprintf(stderr, "    NovAtel BD2IONUTC         : %" PRIu64 "\n", stats.novatelBd2IonUtcLines);
