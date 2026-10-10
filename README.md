@@ -23,16 +23,15 @@ Example:
 
 ```text
 merge_aux_into_input.exe input.log aux.log
-# Output: input-aux.log
-
 merge_aux_into_input.exe raw.log aux.log raw_merge.log
-# Output: raw_merge.log (explicit override)
 ```
+
+The first example produces `input-aux.log`; the second produces the explicitly named `raw_merge.log`.
 
 If `output.log` is omitted, the executable automatically writes to
 `<input-stem>-<aux-stem><input-extension>` in the **input log's directory**.
-For example, `C:\\data\\range.log` and `D:\\nav\\eph.log` produce
-`C:\\data\\range-eph.log`. The input file's extension is preserved,
+For example, `C:\data\range.log` and `D:\nav\eph.log` produce
+`C:\data\range-eph.log`. The input file's extension is preserved,
 even if the auxiliary file uses a different extension. An explicit output
 path continues to take precedence. The optional `tolerance_us` argument
 is supported when an explicit output path is provided.
