@@ -1168,6 +1168,7 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
 void PrintUsage(const char *program) {
     std::fprintf(stderr,
                  "Usage:\n"
+                 "  %s <input.log> <aux.log>\n"
                  "  %s <input.log> <aux.log> <output.log> [tolerance_us]\n\n"
                  "aux.log may contain INSPVA, supported NovAtel/Unicore EPH/ION,\n"
                  "or any mixture of them. The auxiliary file is scanned once.\n"
@@ -1176,8 +1177,10 @@ void PrintUsage(const char *program) {
                  "EPH/ION at the target epoch (or within tolerance) is inserted too.\n"
                  "CRC-invalid/incomplete records are silently skipped.\n"
                  "Targets: RANGE/BESTPOS/BESTVEL/PSRVEL/PSRPOS.\n"
-                 "Default tolerance is 0 us.\n",
-                 program);
+                 "Default tolerance is 0 us.\n"
+                 "When output.log is omitted, the output is named\n"
+                 "<input-stem>-<aux-stem><input-extension> in the input directory.\n",
+                 program, program);
 }
 
 bool IsHelpOption(const fs::path &arg) {
@@ -1200,13 +1203,21 @@ bool IsHelpOption(const fs::path &arg) {
 #endif
 }
 
+fs::path MakeDefaultOutputPath(const fs::path &inputPath, const fs::path &auxPath) {
+    fs::path fileName = inputPath.stem();
+    fileName += "-";
+    fileName += auxPath.stem();
+    fileName += inputPath.extension();
+    return inputPath.parent_path() / fileName;
+}
+
 int ParseAndRun(int argc, fs::path *args, const char *program) {
     if (argc == 2 && IsHelpOption(args[1])) {
         PrintUsage(program);
         return 0;
     }
 
-    if (argc != 4 && argc != 5) {
+    if (argc != 3 && argc != 4 && argc != 5) {
         PrintUsage(program);
         return 1;
     }
@@ -1222,7 +1233,10 @@ int ParseAndRun(int argc, fs::path *args, const char *program) {
         }
     }
 
-    return Run(args[1], args[2], args[3], toleranceNs);
+    const fs::path outputPath = (argc == 3)
+                                    ? MakeDefaultOutputPath(args[1], args[2])
+                                    : args[3];
+    return Run(args[1], args[2], outputPath, toleranceNs);
 }
 
 }  // namespace

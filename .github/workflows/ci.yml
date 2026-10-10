@@ -1,0 +1,15 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build C++17 executable
+        run: g++ -std=c++17 -O2 -Wall -Wextra -pedantic merge_aux_into_input.cpp -o merge_aux_into_input
+      - name: Test CLI output naming
+        run: LOGMERGER_EXE="$GITHUB_WORKSPACE/merge_aux_into_input" python3 -m unittest discover -s tests -v
