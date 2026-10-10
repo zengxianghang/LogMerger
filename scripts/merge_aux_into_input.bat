@@ -14,11 +14,13 @@ if "%~2"=="" (
 )
 
 if "%~3"=="" (
-  set OUTPUT=input_merge.log
+  merge_aux_into_input.exe "%INPUT%" "%AUX%"
 ) else (
-  set OUTPUT=%~3
+  if "%~4"=="" (
+    merge_aux_into_input.exe "%INPUT%" "%AUX%" "%~3"
+  ) else (
+    merge_aux_into_input.exe "%INPUT%" "%AUX%" "%~3" "%~4"
+  )
 )
-
-merge_aux_into_input.exe %INPUT% %AUX% %OUTPUT%
 
 endlocal
