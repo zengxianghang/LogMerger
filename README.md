@@ -8,6 +8,7 @@ High-performance C++ GNSS log merger for NovAtel OEM7 and Unicore N4 ASCII logs.
 - The auxiliary file can contain any combination of:
   - INSPVA
   - NovAtel EPH / ION messages
+  - NovAtel-style SBAS1A–SBAS26A and SBAS28A correction messages
   - Unicore N4 EPH / ION messages
 - Streaming processing suitable for multi-GB logs.
 - CRC validation before using timestamps.
@@ -47,8 +48,8 @@ The eligible target records are:
 Insertion behavior differs by auxiliary record type:
 
 - `INSPVA` is epoch-matched to the first valid target within `tolerance_us`.
-- EPH/ION records are state-bearing navigation data. A CRC-valid EPH/ION record that is earlier than the next valid target is preserved and inserted before that target instead of being discarded. Records at the target epoch (or within `tolerance_us`) are also inserted before the target.
-- This rule also applies to the first target in the input file, so EPH/ION records whose header GPST is earlier than the first RANGE/other eligible target are retained.
+- EPH/ION and SBAS1A–SBAS26A/SBAS28A records are state-bearing navigation/correction data. A CRC-valid EPH/ION/SBAS record that is earlier than the next valid target is preserved and inserted before that target instead of being discarded. Records at the target epoch (or within `tolerance_us`) are also inserted before the target.
+- This rule also applies to the first target in the input file, so EPH/ION/SBAS records whose header GPST is earlier than the first RANGE/other eligible target are retained.
 
 ## Supported auxiliary messages
 
@@ -63,6 +64,7 @@ Insertion behavior differs by auxiliary record type:
 - BD2EPHEMA
 - IONUTCA
 - BD2IONUTCA
+- SBAS1A through SBAS26A, plus SBAS28A (exact names; NovAtel long ASCII header; SBAS27A is not supported)
 
 ### Unicore N4
 
@@ -78,6 +80,15 @@ Insertion behavior differs by auxiliary record type:
 - GLOEPH
 - GALEPH
 - IRNSSEPH
+
+SBAS message times are read from the NovAtel-style header (GPS week in field
+6, seconds-of-week in field 7, counting from 1). The message is CRC-validated,
+inserted unchanged, and never decoded or modified. As with EPH/ION, each
+eligible SBAS record is inserted once before the first CRC-valid target whose
+GPST is at or after the correction record's header time (subject to
+`tolerance_us`). If no such target exists, it is counted as unmatched and
+not appended to the output. The auxiliary stream must be in nondecreasing
+GPST order, including when mixing SBAS with EPH/ION/INSPVA.
 
 ## Build
 

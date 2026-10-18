@@ -105,6 +105,7 @@ enum class AuxLogType {
     kNovatelBd2Ephem,
     kNovatelIonUtc,
     kNovatelBd2IonUtc,
+    kNovatelSbas,
 
     // Unicore N4 long ASCII logs.
     kUnicoreGpsIon,
@@ -154,6 +155,7 @@ struct Stats {
     uint64_t novatelBd2EphemLines = 0;
     uint64_t novatelIonUtcLines = 0;
     uint64_t novatelBd2IonUtcLines = 0;
+    uint64_t novatelSbasLines = 0;
 
     uint64_t unicoreGpsIonLines = 0;
     uint64_t unicoreBd3IonLines = 0;
@@ -306,6 +308,28 @@ bool IsInspvaLine(std::string_view line) {
     return name == "INSPVAA" || name == "INSPVA";
 }
 
+bool IsNovatelSbasName(std::string_view name) {
+    // Accept SBAS1A through SBAS26A and SBAS28A, but not SBAS27A,
+    // leading-zero, out-of-range, or similarly named proprietary messages.
+    if ((name.size() != 6U && name.size() != 7U) ||
+        name.substr(0, 4U) != "SBAS" || name.back() != 'A') {
+        return false;
+    }
+
+    int messageType = 0;
+    for (size_t i = 4U; i + 1U < name.size(); ++i) {
+        const char c = name[i];
+        if (c < '0' || c > '9') {
+            return false;
+        }
+        if (i == 4U && name.size() == 7U && c == '0') {
+            return false;
+        }
+        messageType = messageType * 10 + (c - '0');
+    }
+    return (messageType >= 1 && messageType <= 26) || messageType == 28;
+}
+
 AuxLogType ClassifyAuxLine(std::string_view line) {
     std::string_view name;
     if (!GetMessageName(line, name)) {
@@ -337,6 +361,12 @@ AuxLogType ClassifyAuxLine(std::string_view line) {
     }
     if (name == "BD2IONUTCA" || name == "BD2IONUTC") {
         return AuxLogType::kNovatelBd2IonUtc;
+    }
+
+    // SBAS corrections use the NovAtel long ASCII header and the same
+    // carry-forward insertion rules as EPH/ION/SBAS.
+    if (IsNovatelSbasName(name)) {
+        return AuxLogType::kNovatelSbas;
     }
 
     // Unicore N4 ASCII output names. The manual's ASCII syntax appends A to
@@ -412,6 +442,7 @@ void CountAuxLine(AuxLogType type, Stats &stats) {
         case AuxLogType::kNovatelBd2Ephem: ++stats.novatelBd2EphemLines; break;
         case AuxLogType::kNovatelIonUtc: ++stats.novatelIonUtcLines; break;
         case AuxLogType::kNovatelBd2IonUtc: ++stats.novatelBd2IonUtcLines; break;
+        case AuxLogType::kNovatelSbas: ++stats.novatelSbasLines; break;
         case AuxLogType::kUnicoreGpsIon: ++stats.unicoreGpsIonLines; break;
         case AuxLogType::kUnicoreBd3Ion: ++stats.unicoreBd3IonLines; break;
         case AuxLogType::kUnicoreBdsIon: ++stats.unicoreBdsIonLines; break;
@@ -929,7 +960,7 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
             std::fprintf(stderr,
                          "Processed input: %.2f GiB, targets=%" PRIu64
                          ", inserted INSPVA=%" PRIu64
-                         ", inserted EPH/ION=%" PRIu64 "\n",
+                         ", inserted EPH/ION/SBAS=%" PRIu64 "\n",
                          static_cast<double>(inputReader.bytesRead) /
                              static_cast<double>(1ULL << 30),
                          stats.targetLines, stats.insertedInspvaLines,
@@ -984,11 +1015,11 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
         const std::string &insertEol =
             inputEol.empty() ? defaultOutputEol : inputEol;
 
-        // EPH/ION records are state-bearing navigation data. If an EPH/ION
+        // EPH/ION/SBAS records are state-bearing navigation data. If an EPH/ION/SBAS
         // header is older than the current target, keep it and emit it before
         // this target instead of discarding it as stale. INSPVA remains an
         // epoch-matched record, so stale INSPVA is still counted unmatched.
-        // This also preserves EPH/ION records that precede the first target in
+        // This also preserves EPH/ION/SBAS records that precede the first target in
         // input.log, including GPSCNAVEPH before the first RANGE epoch.
         while (hasAuxLine &&
                currentAux.gpstNs < targetTime.gpstNs - toleranceNs) {
@@ -996,7 +1027,7 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
                 ++stats.unmatchedInspvaBeforeTarget;
             } else {
                 if (!WriteLine(output, currentAux.text, insertEol)) {
-                    error = "failed while writing carried-forward EPH/ION line";
+                    error = "failed while writing carried-forward EPH/ION/SBAS line";
                     ok = false;
                     break;
                 }
@@ -1135,7 +1166,7 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
     std::fprintf(stderr, "  inserted INSPVA lines       : %" PRIu64 "\n", stats.insertedInspvaLines);
     std::fprintf(stderr, "  unmatched INSPVA before     : %" PRIu64 "\n", stats.unmatchedInspvaBeforeTarget);
     std::fprintf(stderr, "  unmatched INSPVA after      : %" PRIu64 "\n", stats.unmatchedInspvaAfterInput);
-    std::fprintf(stderr, "  CRC-valid EPH/ION records   : %" PRIu64 "\n", stats.auxLines);
+    std::fprintf(stderr, "  CRC-valid EPH/ION/SBAS records   : %" PRIu64 "\n", stats.auxLines);
     std::fprintf(stderr, "    NovAtel GLOEPHEMERIS      : %" PRIu64 "\n", stats.novatelGloEphemerisLines);
     std::fprintf(stderr, "    NovAtel QZSSEPHEMERIS     : %" PRIu64 "\n", stats.novatelQzssEphemerisLines);
     std::fprintf(stderr, "    NovAtel GALEPHEMERIS      : %" PRIu64 "\n", stats.novatelGalEphemerisLines);
@@ -1144,6 +1175,7 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
     std::fprintf(stderr, "    NovAtel BD2EPHEM          : %" PRIu64 "\n", stats.novatelBd2EphemLines);
     std::fprintf(stderr, "    NovAtel IONUTC            : %" PRIu64 "\n", stats.novatelIonUtcLines);
     std::fprintf(stderr, "    NovAtel BD2IONUTC         : %" PRIu64 "\n", stats.novatelBd2IonUtcLines);
+    std::fprintf(stderr, "    NovAtel SBAS1A-26A,28A     : %" PRIu64 "\n", stats.novatelSbasLines);
     std::fprintf(stderr, "    Unicore GPSION            : %" PRIu64 "\n", stats.unicoreGpsIonLines);
     std::fprintf(stderr, "    Unicore BD3ION            : %" PRIu64 "\n", stats.unicoreBd3IonLines);
     std::fprintf(stderr, "    Unicore BDSION            : %" PRIu64 "\n", stats.unicoreBdsIonLines);
@@ -1156,9 +1188,9 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
     std::fprintf(stderr, "    Unicore GLOEPH            : %" PRIu64 "\n", stats.unicoreGloEphLines);
     std::fprintf(stderr, "    Unicore GALEPH            : %" PRIu64 "\n", stats.unicoreGalEphLines);
     std::fprintf(stderr, "    Unicore IRNSSEPH          : %" PRIu64 "\n", stats.unicoreIrnssEphLines);
-    std::fprintf(stderr, "  inserted EPH/ION lines      : %" PRIu64 "\n", stats.insertedAuxLines);
-    std::fprintf(stderr, "  unmatched EPH/ION before   : %" PRIu64 "\n", stats.unmatchedAuxBeforeTarget);
-    std::fprintf(stderr, "  unmatched EPH/ION after    : %" PRIu64 "\n", stats.unmatchedAuxAfterInput);
+    std::fprintf(stderr, "  inserted EPH/ION/SBAS lines      : %" PRIu64 "\n", stats.insertedAuxLines);
+    std::fprintf(stderr, "  unmatched EPH/ION/SBAS before   : %" PRIu64 "\n", stats.unmatchedAuxBeforeTarget);
+    std::fprintf(stderr, "  unmatched EPH/ION/SBAS after    : %" PRIu64 "\n", stats.unmatchedAuxAfterInput);
     std::fprintf(stderr, "  ignored other aux lines     : %" PRIu64 "\n", stats.ignoredAuxLines);
     std::fprintf(stderr, "  output                      : %s\n",
                  PathForMessage(outputPath).c_str());
@@ -1170,11 +1202,11 @@ void PrintUsage(const char *program) {
                  "Usage:\n"
                  "  %s <input.log> <aux.log>\n"
                  "  %s <input.log> <aux.log> <output.log> [tolerance_us]\n\n"
-                 "aux.log may contain INSPVA, supported NovAtel/Unicore EPH/ION,\n"
+                 "aux.log may contain INSPVA, EPH/ION, SBAS1A-SBAS26A, SBAS28A,\n"
                  "or any mixture of them. The auxiliary file is scanned once.\n"
-                 "INSPVA is epoch-matched within tolerance. Earlier EPH/ION records\n"
+                 "INSPVA is epoch-matched within tolerance. Earlier EPH/ION/SBAS records\n"
                  "are preserved and inserted before the next CRC-valid target;\n"
-                 "EPH/ION at the target epoch (or within tolerance) is inserted too.\n"
+                 "EPH/ION/SBAS at the target epoch (or within tolerance) is inserted too.\n"
                  "CRC-invalid/incomplete records are silently skipped.\n"
                  "Targets: RANGE/BESTPOS/BESTVEL/PSRVEL/PSRPOS.\n"
                  "Default tolerance is 0 us.\n"
