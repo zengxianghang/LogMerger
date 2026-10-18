@@ -1,4 +1,4 @@
-"""Regression tests for SBAS1A–SBAS26A insertion using NovAtel long ASCII headers.
+"""Regression tests for SBAS1A–SBAS26A and SBAS28A insertion using NovAtel long ASCII headers.
 
 Run after building the executable:
   LOGMERGER_EXE=/path/to/merge_aux_into_input python -m unittest discover -s tests -v
@@ -55,14 +55,23 @@ class SbasInsertionTests(unittest.TestCase):
         self.assertEqual(output_file.read_bytes(), expected)
         return proc.stderr.decode(errors="replace")
 
-    def test_all_26_types_are_inserted_before_first_range(self):
-        sbas = b"".join(record(f"SBAS{mt}A", "123455.900") for mt in range(1, 27))
+    def test_all_27_supported_types_are_inserted_before_first_range(self):
+        sbas = b"".join(record(f"SBAS{mt}A", "123455.900")
+                        for mt in (*range(1, 27), 28))
         first = record("RANGEA", "123456.000")
         second = record("RANGEA", "123457.000")
         stderr = self.assert_merged(first + second, sbas,
                                     sbas + first + second)
-        self.assertIn("SBAS1A-SBAS26A", stderr)
-        self.assertIn("26", stderr)
+        self.assertIn("SBAS1A-26A,28A", stderr)
+        self.assertIn("27", stderr)
+
+    def test_sbas28a_is_inserted_at_first_eligible_range(self):
+        sbas28 = record("SBAS28A", "100.500")
+        first = record("RANGEA", "100.000")
+        second = record("RANGEA", "101.000")
+        third = record("RANGEA", "102.000")
+        self.assert_merged(first + second + third, sbas28,
+                           first + sbas28 + second + third)
 
     def test_mixed_eph_inspva_sbas_and_no_duplicate_insertion(self):
         eph = record("GPSEPHEMA", "100.000")
