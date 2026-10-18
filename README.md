@@ -8,7 +8,7 @@ High-performance C++ GNSS log merger for NovAtel OEM7 and Unicore N4 ASCII logs.
 - The auxiliary file can contain any combination of:
   - INSPVA
   - NovAtel EPH / ION messages
-  - NovAtel-style SBAS1A–SBAS26A correction messages
+  - NovAtel-style SBAS1A–SBAS26A and SBAS28A correction messages
   - Unicore N4 EPH / ION messages
 - Streaming processing suitable for multi-GB logs.
 - CRC validation before using timestamps.
@@ -48,7 +48,7 @@ The eligible target records are:
 Insertion behavior differs by auxiliary record type:
 
 - `INSPVA` is epoch-matched to the first valid target within `tolerance_us`.
-- EPH/ION and SBAS1A–SBAS26A records are state-bearing navigation/correction data. A CRC-valid EPH/ION/SBAS record that is earlier than the next valid target is preserved and inserted before that target instead of being discarded. Records at the target epoch (or within `tolerance_us`) are also inserted before the target.
+- EPH/ION and SBAS1A–SBAS26A/SBAS28A records are state-bearing navigation/correction data. A CRC-valid EPH/ION/SBAS record that is earlier than the next valid target is preserved and inserted before that target instead of being discarded. Records at the target epoch (or within `tolerance_us`) are also inserted before the target.
 - This rule also applies to the first target in the input file, so EPH/ION/SBAS records whose header GPST is earlier than the first RANGE/other eligible target are retained.
 
 ## Supported auxiliary messages
@@ -64,7 +64,7 @@ Insertion behavior differs by auxiliary record type:
 - BD2EPHEMA
 - IONUTCA
 - BD2IONUTCA
-- SBAS1A through SBAS26A (inclusive, exact names; NovAtel long ASCII header)
+- SBAS1A through SBAS26A, plus SBAS28A (exact names; NovAtel long ASCII header; SBAS27A is not supported)
 
 ### Unicore N4
 
