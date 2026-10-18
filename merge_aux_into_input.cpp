@@ -309,8 +309,8 @@ bool IsInspvaLine(std::string_view line) {
 }
 
 bool IsNovatelSbasName(std::string_view name) {
-    // Accept only SBAS1A through SBAS26A, not leading-zero,
-    // out-of-range, or similarly named proprietary messages.
+    // Accept SBAS1A through SBAS26A and SBAS28A, but not SBAS27A,
+    // leading-zero, out-of-range, or similarly named proprietary messages.
     if ((name.size() != 6U && name.size() != 7U) ||
         name.substr(0, 4U) != "SBAS" || name.back() != 'A') {
         return false;
@@ -327,7 +327,7 @@ bool IsNovatelSbasName(std::string_view name) {
         }
         messageType = messageType * 10 + (c - '0');
     }
-    return messageType >= 1 && messageType <= 26;
+    return (messageType >= 1 && messageType <= 26) || messageType == 28;
 }
 
 AuxLogType ClassifyAuxLine(std::string_view line) {
@@ -1175,7 +1175,7 @@ int Run(const fs::path &inputPath, const fs::path &auxPath,
     std::fprintf(stderr, "    NovAtel BD2EPHEM          : %" PRIu64 "\n", stats.novatelBd2EphemLines);
     std::fprintf(stderr, "    NovAtel IONUTC            : %" PRIu64 "\n", stats.novatelIonUtcLines);
     std::fprintf(stderr, "    NovAtel BD2IONUTC         : %" PRIu64 "\n", stats.novatelBd2IonUtcLines);
-    std::fprintf(stderr, "    NovAtel SBAS1A-SBAS26A    : %" PRIu64 "\n", stats.novatelSbasLines);
+    std::fprintf(stderr, "    NovAtel SBAS1A-26A,28A     : %" PRIu64 "\n", stats.novatelSbasLines);
     std::fprintf(stderr, "    Unicore GPSION            : %" PRIu64 "\n", stats.unicoreGpsIonLines);
     std::fprintf(stderr, "    Unicore BD3ION            : %" PRIu64 "\n", stats.unicoreBd3IonLines);
     std::fprintf(stderr, "    Unicore BDSION            : %" PRIu64 "\n", stats.unicoreBdsIonLines);
@@ -1202,7 +1202,7 @@ void PrintUsage(const char *program) {
                  "Usage:\n"
                  "  %s <input.log> <aux.log>\n"
                  "  %s <input.log> <aux.log> <output.log> [tolerance_us]\n\n"
-                 "aux.log may contain INSPVA, supported EPH/ION/SBAS1A-SBAS26A,\n"
+                 "aux.log may contain INSPVA, EPH/ION, SBAS1A-SBAS26A, SBAS28A,\n"
                  "or any mixture of them. The auxiliary file is scanned once.\n"
                  "INSPVA is epoch-matched within tolerance. Earlier EPH/ION/SBAS records\n"
                  "are preserved and inserted before the next CRC-valid target;\n"
